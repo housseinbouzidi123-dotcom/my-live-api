@@ -5,21 +5,35 @@ import re
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # 1. جلب التوكن الجديد (تأكد من تعديل الرابط والـ User-Agent أدناه بما يناسب التطبيق الأصلي)
-        source_url = "http://217.60.15.181:8080/قيمة_الرابط_المصطاد" 
+        # توكن افتراضي احتياطي حتى لا ينهار السيرفر أبداً في حال فشل جلب التوكن الديناميكي
+        new_token = "yXzbaHc.fyaXy.X.faUdz.ydzzcXfHbU.X.y.FR.ts.e6bded1b8bf057cc3a0b376e0145f8970425b4bf83bcfab782614901bcc624ae.5089.VmlyZ2luIE1lZGlh.MTg1LjE5MS4xMjYuMTI3"
+        
+        # الرابط المصطاد من تطبيق جلب البث (تأكد لاحقاً من وضع الرابط الصحيح كاملاً هنا)
+        source_url = "http://217.60.15.181:8080/live///b0:99:d7:15:88:50/3090914536649669/318197.ts" 
         headers = {
-            "User-Agent": "ضع هنا الـ User-Agent المصطاد من التطبيق",
+            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
             "Accept": "*/*"
         }
         
         try:
-            response = requests.get(source_url, headers=headers, timeout=5)
-            token_match = re.search(r'token=([a-zA-Z0-9._-]+)', response.text)
-            new_token = token_match.group(1) if token_match else "yXzbaHc.fyaXy..."
-        except:
-            new_token = "yXzbaHc.fyaXy..." # توكن احتياطي في حال الفشل
+            # محاولة جلب التوكن الجديد تلقائياً
+            response = requests.get(source_url, headers=headers, timeout=4)
+            # إذا كان الرابط يعيد التوجيه إلى رابط يحتوي على التوكن
+            final_url = response.url
+            token_match = re.search(r'token=([a-zA-Z0-9._-]+)', final_url)
+            
+            if token_match:
+                new_token = token_match.group(1)
+            else:
+                # محاولة البحث داخل نص الاستجابة نفسه إذا لم يكن في الرابط
+                token_match_text = re.search(r'token=([a-zA-Z0-9._-]+)', response.text)
+                if token_match_text:
+                    new_token = token_match_text.group(1)
+        except Exception as e:
+            # في حال حدوث أي خطأ في الاتصال، سيستمر السكريبت بالعمل دون الانهيار وسيعتمد التوكن الاحتياطي
+            pass
 
-        # 2. بناء قائمة كافة قنوات البث بالتوكن الجديد المتجدد تلقائياً
+        # بناء قائمة القنوات بالتوكن المتاح
         streams = {
             # ===================== FHD =====================
             "bein1_fhd": f"http://217.60.15.181:8080/live///b0:99:d7:15:88:50/3090914536649669/318197.ts?token={new_token}",
@@ -58,21 +72,13 @@ class handler(BaseHTTPRequestHandler):
             "max1_fhd": "http://195.182.16.45:8080/live/omar777/01103978590/460861.ts",
             "max2_fhd": "http://195.182.16.45:8080/live/omar777/01103978590/460864.ts",
             "max3_fhd": "http://195.182.16.45:8080/live/omar777/01103978590/460867.ts",
-            "max4_fhd": "http://195.182.16.54:8080/live/54:3a:d6:35:30:f0/4446898654/460870.ts",
-            "max1_hd": "http://195.182.16.54:8080/live/54:3a:d6:35:30:f0/4446898654/460862.ts",
-            "max2_hd": "http://195.182.16.45:8080/live/omar777/01103978590/460865.ts",
-            "max3_hd": "http://195.182.16.48:8080/live/54:3a:d6:35:30:f0/4446898654/460868.ts",
-            "max4_hd": "http://195.182.16.53:8080/live/54:3a:d6:35:30:f0/4446898654/460871.ts",
-            "max1_sd": "http://195.182.16.45:8080/live/omar77777/01103978590/460862.ts",
-            "max2_sd": "http://195.182.16.45:8080/live/omar777/01103978590/460866.ts",
-            "max3_sd": "http://195.182.16.45:8080/live/omar777/01103978590/460869.ts",
-            "max4_sd": "http://195.182.16.45:8080/live/omar777/01103978590/460872.ts"
+            "max4_fhd": "http://195.182.16.54:8080/live/54:3a:d6:35:30:f0/4446898654/460870.ts"
         }
 
-        # 3. إرسال الاستجابة للووركر بصيغة JSON
-        self.send_header('Access-Control-Allow-Origin', '*') 
+        # إرسال الاستجابة بنجاح لمتصفح الويب أو الووركر
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(json.dumps(streams).encode('utf-8'))
         return
